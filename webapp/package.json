@@ -1,0 +1,17 @@
+{
+    "name": "mattermost-plugin-read-receipts-webapp",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "webpack --mode=production --config webpack.config.cjs",
+        "test": "node --test"
+    },
+    "devDependencies": {
+        "@babel/core": "^8.0.7",
+        "@babel/preset-env": "^8.0.7",
+        "@babel/preset-react": "^8.0.1",
+        "babel-loader": "^10.1.1",
+        "webpack": "^5.111.1",
+        "webpack-cli": "^7.2.3"
+    }
+}

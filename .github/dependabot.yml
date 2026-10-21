@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /webapp
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    groups:
+      build-tooling:
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  - package-ecosystem: gomod
+    directory: /server
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    # The plugin API package must not get ahead of the oldest supported server.
+    ignore:
+      - dependency-name: github.com/mattermost/mattermost/server/public
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci

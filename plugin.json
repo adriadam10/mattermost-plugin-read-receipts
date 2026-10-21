@@ -1,0 +1,18 @@
+{
+    "id": "com.github.adriadam10.read-receipts",
+    "name": "Read Receipts",
+    "description": "WhatsApp-style read receipts (sent, delivered, read) for direct and group messages.",
+    "homepage_url": "https://github.com/adriadam10/mattermost-plugin-read-receipts",
+    "support_url": "https://github.com/adriadam10/mattermost-plugin-read-receipts/issues",
+    "version": "0.1.0",
+    "min_server_version": "11.11.0",
+    "server": {
+        "executables": {
+            "linux-amd64": "server/dist/plugin-linux-amd64",
+            "linux-arm64": "server/dist/plugin-linux-arm64"
+        }
+    },
+    "webapp": {
+        "bundle_path": "webapp/dist/main.js"
+    }
+}
