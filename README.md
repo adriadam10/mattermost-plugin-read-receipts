@@ -1,19 +1,19 @@
 # Mattermost Read Receipts plugin
 
-WhatsApp-style read receipts for Mattermost direct and group messages.
+WhatsApp-style read receipts for Mattermost direct and group messages and small channels.
 
 - ✓ sent, ✓✓ grey delivered, ✓✓ blue read, at the bottom right of each of your own messages.
-- In group messages the ticks turn blue once **everybody** has read the message.
+- In group messages and channels the ticks turn blue once **everybody** has read the message.
 - "Message info" (post `···` menu, or click the ticks): who read it and when, and who only got it.
 - Only the author of a message can see its receipts; the server refuses the status of anybody else's posts.
 - A message counts as read when it was on screen while the window had focus, not just because the conversation was opened.
-- Users can turn read receipts off in *Settings → Read receipts*. As in WhatsApp this applies to direct messages and works both ways: their reads are not recorded and they do not see anybody else's. Group messages always have receipts.
-- Public and private channels are left alone.
+- Users can turn read receipts off in *Settings → Read receipts*. As in WhatsApp this applies to direct messages and works both ways: their reads are not recorded and they do not see anybody else's. Group messages and channels always have receipts.
+- Public and private channels get receipts only up to *Max channel members* (System Console → Plugins → Read Receipts, default 25, 0 turns them off, maximum 100). In bigger channels "read by everybody" hardly ever happens and every read would notify all members. The server tells the client which channels to skip, so it stops reporting them.
 
 ## How it works
 
 Messages in a conversation arrive in order, so the plugin keeps, per member and
-conversation, two watermarks: how far messages have been **delivered** to one of
+conversation (direct/group message or tracked channel), two watermarks: how far messages have been **delivered** to one of
 their clients and how far they have **read**. A message is delivered/read by a
 member once the watermark passed its creation time. Each watermark keeps its last
 500 advances so the info panel can say *when* each message was reached. Everything
@@ -35,7 +35,7 @@ on consecutive posts), so the ticks are placed at the end of the post body from 
 
 - The native mobile apps do not run webapp plugins: they show no ticks, and reading
   there is not reported as read (only as delivered, while the app is connected).
-- Bots are not counted as recipients.
+- Bots and deactivated users are not counted as recipients.
 
 ## Build
 

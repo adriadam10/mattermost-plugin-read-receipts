@@ -1,10 +1,10 @@
 {
     "id": "com.github.adriadam10.read-receipts",
     "name": "Read Receipts",
-    "description": "WhatsApp-style read receipts (sent, delivered, read) for direct and group messages.",
+    "description": "WhatsApp-style read receipts (sent, delivered, read) for direct and group messages and small channels.",
     "homepage_url": "https://github.com/adriadam10/mattermost-plugin-read-receipts",
     "support_url": "https://github.com/adriadam10/mattermost-plugin-read-receipts/issues",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "min_server_version": "11.11.0",
     "server": {
         "executables": {
@@ -14,5 +14,17 @@
     },
     "webapp": {
         "bundle_path": "webapp/dist/main.js"
+    },
+    "settings_schema": {
+        "header": "WhatsApp-style read receipts. Direct and group messages always have them; public and private channels only up to the size below.",
+        "settings": [
+            {
+                "key": "MaxChannelMembers",
+                "display_name": "Max channel members",
+                "type": "number",
+                "default": 25,
+                "help_text": "Public and private channels with up to this many members get read receipts (0 turns them off in channels, maximum 100). In bigger channels \"read by everybody\" hardly ever happens and every read would notify all members."
+            }
+        ]
     }
 }

@@ -2,7 +2,10 @@ import {fetchStatuses, markDelivered, markRead} from './api.js';
 import {postIdFromElementId} from './post_id.js';
 import {renderTicks} from './ticks.js';
 
-const CONVERSATION_TYPES = new Set(['D', 'G']);
+// Direct and group messages always have receipts; channels only up to a size the
+// server knows, so it answers which ones to skip (ignoredChannels).
+const MESSAGE_TYPES = new Set(['D', 'G']);
+const TRACKED_TYPES = new Set(['D', 'G', 'O', 'P']);
 const MAX_IDS_PER_REQUEST = 200;
 
 // A post is on screen when 60% of it is visible, or it fills half the window
@@ -28,7 +31,7 @@ function reportError(error) {
 }
 
 // Watches the post list: paints check marks on the user's own posts in direct and
-// group messages and reports which posts by others the user had on screen.
+// group messages and small channels, and reports which posts by others the user had on screen.
 export default class Tracker {
     constructor(store, t, openInfo) {
         this.store = store;
@@ -43,6 +46,7 @@ export default class Tracker {
         this.reportedReadUpTo = new Map();
         this.pendingRead = new Set();
         this.pendingDelivered = new Set();
+        this.ignoredChannels = new Set();
         this.observed = new Set();
         this.timers = {};
 
@@ -80,7 +84,7 @@ export default class Tracker {
         const post = this.state.entities.posts.posts[postId];
         const channel = post && this.state.entities.channels.channels[post.channel_id];
         // Typed posts are system messages (joins, header changes...) or plugin cards.
-        if (!channel || !CONVERSATION_TYPES.has(channel.type) || post.type) {
+        if (!channel || !TRACKED_TYPES.has(channel.type) || this.ignoredChannels.has(channel.id) || post.type) {
             return null;
         }
         return post;
@@ -124,7 +128,9 @@ export default class Tracker {
             }
             if (post.user_id === this.currentUserId) {
                 if (!this.statuses.has(postId)) {
-                    this.statuses.set(postId, 'sent');
+                    // A channel may turn out to have no receipts: show nothing there until the server says.
+                    const channel = this.state.entities.channels.channels[post.channel_id];
+                    this.statuses.set(postId, MESSAGE_TYPES.has(channel.type) ? 'sent' : null);
                     this.staleStatuses.add(postId);
                 }
                 renderTicks(element, postId, this.statuses.get(postId), this.t, this.openInfo);
@@ -167,11 +173,11 @@ export default class Tracker {
 
     // A message reached this client over the websocket: it is delivered.
     onPosted = (msg) => {
-        if (!CONVERSATION_TYPES.has(msg.data.channel_type)) {
+        if (!TRACKED_TYPES.has(msg.data.channel_type)) {
             return;
         }
         const post = JSON.parse(msg.data.post);
-        if (post.user_id === this.currentUserId) {
+        if (post.user_id === this.currentUserId || this.ignoredChannels.has(post.channel_id)) {
             return;
         }
         this.pendingDelivered.add(post.channel_id);
@@ -187,7 +193,7 @@ export default class Tracker {
         const {channels, myMembers} = this.state.entities.channels;
         const since = Date.now() - RECENT_CONVERSATION_MS;
         Object.values(channels).
-            filter((c) => CONVERSATION_TYPES.has(c.type) && myMembers[c.id] && c.last_post_at > since).
+            filter((c) => TRACKED_TYPES.has(c.type) && !this.ignoredChannels.has(c.id) && myMembers[c.id] && c.last_post_at > since).
             forEach((c) => this.pendingDelivered.add(c.id));
         this.later('delivered', this.sendDelivered, 0);
     }
@@ -195,7 +201,7 @@ export default class Tracker {
     sendDelivered = () => {
         const channelIds = [...this.pendingDelivered];
         this.pendingDelivered.clear();
-        chunks(channelIds).forEach((batch) => markDelivered(batch).catch(reportError));
+        chunks(channelIds).forEach((batch) => markDelivered(batch).then(this.ignore).catch(reportError));
     };
 
     onIntersection = (entries) => {
@@ -240,6 +246,10 @@ export default class Tracker {
     sendRead = () => {
         const postIds = [...this.pendingRead];
         this.pendingRead.clear();
-        chunks(postIds).forEach((batch) => markRead(batch).catch(reportError));
+        chunks(postIds).forEach((batch) => markRead(batch).then(this.ignore).catch(reportError));
+    };
+
+    ignore = (response) => {
+        response.ignored_channel_ids.forEach((id) => this.ignoredChannels.add(id));
     };
 }

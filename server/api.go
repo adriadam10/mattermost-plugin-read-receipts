@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/mattermost/mattermost/server/public/model"
@@ -63,13 +64,24 @@ func (p *Plugin) handleDelivered(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := model.GetMillis()
+	ignored := []string{}
 	for _, channelID := range req.ChannelIDs {
 		if _, err := p.conversation(channelID, userID); err != nil {
+			ignored = appendIfUntracked(ignored, channelID, err)
 			continue
 		}
 		p.record(channelID, userID, func(pr *progress) bool { return pr.markDelivered(now, now) })
 	}
-	w.WriteHeader(http.StatusNoContent)
+	writeJSON(w, map[string]any{"ignored_channel_ids": ignored})
+}
+
+// appendIfUntracked lists channels without read receipts, so the client stops
+// reporting them. Other errors are transient and the channel is not listed.
+func appendIfUntracked(ignored []string, channelID string, err error) []string {
+	if errors.Is(err, errNotConversation) {
+		return append(ignored, channelID)
+	}
+	return ignored
 }
 
 // handleRead: these posts were on the user's screen with the window focused.
@@ -89,9 +101,11 @@ func (p *Plugin) handleRead(w http.ResponseWriter, r *http.Request) {
 	}
 	now := model.GetMillis()
 	optedOut := p.readReceiptsOff(userID)
+	ignored := []string{}
 	for channelID, upto := range latest {
 		conv, err := p.conversation(channelID, userID)
 		if err != nil {
+			ignored = appendIfUntracked(ignored, channelID, err)
 			continue
 		}
 		if optedOut && p.isDirect(conv) {
@@ -100,7 +114,7 @@ func (p *Plugin) handleRead(w http.ResponseWriter, r *http.Request) {
 		}
 		p.record(channelID, userID, func(pr *progress) bool { return pr.markRead(upto, now) })
 	}
-	w.WriteHeader(http.StatusNoContent)
+	writeJSON(w, map[string]any{"ignored_channel_ids": ignored})
 }
 
 // conversationView is what the author of a post may know about its recipients.
@@ -149,7 +163,7 @@ func (p *Plugin) handleStatus(w http.ResponseWriter, r *http.Request) {
 		view, seen := views[post.ChannelId]
 		if !seen {
 			var err error
-			if view, err = p.viewFor(post.ChannelId, userID); err != nil && err != errNotConversation {
+			if view, err = p.viewFor(post.ChannelId, userID); err != nil && !errors.Is(err, errNotConversation) {
 				p.API.LogWarn("Failed to load read receipts", "channel_id", post.ChannelId, "err", err.Error())
 			}
 			views[post.ChannelId] = view
