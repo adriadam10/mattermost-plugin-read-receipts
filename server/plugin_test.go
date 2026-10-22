@@ -21,3 +21,9 @@ func TestIsRecipient(t *testing.T) {
 		}
 	}
 }
+
+func TestPrefCategoryMatchesWebapp(t *testing.T) {
+	if got := prefCategory(); got != "pp_com.github.adriadam10.read-re" {
+		t.Errorf("category %q", got)
+	}
+}

@@ -145,8 +145,19 @@ func (p *Plugin) isDirect(conv *conversation) bool {
 // receipts) and works both ways: their reads
 // are not recorded and they do not see anybody else's.
 func (p *Plugin) readReceiptsOff(userID string) bool {
-	pref, appErr := p.API.GetPreferenceForUser(userID, "pp_"+manifestID, settingName)
+	pref, appErr := p.API.GetPreferenceForUser(userID, prefCategory(), settingName)
 	return appErr == nil && pref.Value == settingOff
+}
+
+// Length of the category column of the preferences table; the webapp cuts to it too.
+const maxCategoryLength = 32
+
+// prefCategory is where Mattermost keeps the plugin's user settings: "pp_" plus
+// the plugin id, cut to 32 characters (getPluginPreferenceKey in the webapp).
+// Our id is longer, so without the cut the setting was never found.
+func prefCategory() string {
+	category := "pp_" + manifestID
+	return category[:min(len(category), maxCategoryLength)]
 }
 
 func progressKey(channelID, userID string) string {

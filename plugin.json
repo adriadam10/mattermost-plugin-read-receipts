@@ -4,7 +4,7 @@
     "description": "WhatsApp-style read receipts (sent, delivered, read) for direct and group messages and small channels.",
     "homepage_url": "https://github.com/adriadam10/mattermost-plugin-read-receipts",
     "support_url": "https://github.com/adriadam10/mattermost-plugin-read-receipts/issues",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "min_server_version": "11.11.0",
     "server": {
         "executables": {
