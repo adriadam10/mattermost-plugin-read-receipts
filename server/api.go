@@ -133,12 +133,14 @@ func (p *Plugin) viewFor(channelID, authorID string) (*conversationView, error) 
 	direct := p.isDirect(conv)
 	view.hideRead = direct && p.readReceiptsOff(authorID)
 	for _, userID := range conv.recipients {
+		optedOut := direct && p.readReceiptsOff(userID)
+		p.syncViewed(channelID, userID, optedOut)
 		pr, _, err := p.loadProgress(channelID, userID)
 		if err != nil {
 			return nil, err
 		}
 		view.progress = append(view.progress, pr)
-		if direct && p.readReceiptsOff(userID) {
+		if optedOut {
 			view.hideRead = true
 		}
 	}

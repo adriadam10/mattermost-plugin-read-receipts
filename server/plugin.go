@@ -55,6 +55,33 @@ func (p *Plugin) MessageHasBeenPosted(_ *plugin.Context, post *model.Post) {
 		}
 		p.record(conv.channel.Id, userID, func(pr *progress) bool { return pr.markDelivered(post.CreateAt, now) })
 	}
+	// Answering means having read the conversation up to here, whatever the
+	// client: Matty and the mobile apps never report reads themselves.
+	optedOut := p.isDirect(conv) && p.readReceiptsOff(post.UserId)
+	p.record(conv.channel.Id, post.UserId, seenUpTo(post.CreateAt, optedOut))
+}
+
+// seenUpTo is the change for "the user saw the conversation up to t": read, or
+// only delivered for someone who turned read receipts off in a direct message.
+func seenUpTo(t int64, optedOut bool) func(*progress) bool {
+	return func(pr *progress) bool {
+		if optedOut {
+			return pr.markDelivered(t, t)
+		}
+		return pr.markRead(t, t)
+	}
+}
+
+// syncViewed counts as read what Mattermost itself marks as viewed. Clients that
+// do not run the webapp part (Matty, the mobile apps) only move the member's
+// last_viewed_at when the conversation is opened, and the plugin API has no hook
+// for that, so it is read whenever the author asks for check marks.
+func (p *Plugin) syncViewed(channelID, userID string, optedOut bool) {
+	member, appErr := p.API.GetChannelMember(channelID, userID)
+	if appErr != nil || member.LastViewedAt == 0 {
+		return
+	}
+	p.record(channelID, userID, seenUpTo(member.LastViewedAt, optedOut))
 }
 
 // conversation is a channel with read receipts (a direct or group message, or a

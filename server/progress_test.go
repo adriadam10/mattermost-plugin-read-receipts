@@ -66,3 +66,17 @@ func TestPostState(t *testing.T) {
 		}
 	}
 }
+
+func TestSeenUpToReadsOrOnlyDelivers(t *testing.T) {
+	var pr progress
+	if !seenUpTo(100, false)(&pr) || reachedAt(pr.Read, 100) != 100 || reachedAt(pr.Delivered, 100) != 100 {
+		t.Fatalf("seen must count as read and delivered: %+v", pr)
+	}
+	var off progress
+	if !seenUpTo(100, true)(&off) || len(off.Read) != 0 || reachedAt(off.Delivered, 100) != 100 {
+		t.Fatalf("opted out must only deliver: %+v", off)
+	}
+	if seenUpTo(50, false)(&pr) {
+		t.Fatal("an older view must not move the watermark")
+	}
+}

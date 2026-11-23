@@ -25,6 +25,13 @@ is stored in the plugin KV store; no data is copied out of Mattermost.
   the last 14 days.
 - **Read**: the webapp watches the posts by others with an `IntersectionObserver`
   and reports those at least 60% visible while the tab is visible and focused.
+- **Read in other clients**: clients without the webapp part (the mobile apps,
+  native ones like [Matty](https://github.com/karyalabs/matty)) report nothing, but
+  they mark the conversation viewed. The server counts as read everything up to the
+  member's `last_viewed_at` whenever the author asks for check marks (the plugin API
+  has no hook for "channel viewed"), and posting in a conversation counts as having
+  read it up to there. The webapp re-asks every 20 seconds while own posts on screen
+  are not read yet.
 - Each change is pushed to the other members over the websocket, so ticks turn blue live.
 
 Webapp plugins cannot add a component to every post (the post header slot is hidden
@@ -33,8 +40,9 @@ on consecutive posts), so the ticks are placed at the end of the post body from 
 
 ## Limitations
 
-- The native mobile apps do not run webapp plugins: they show no ticks, and reading
-  there is not reported as read (only as delivered, while the app is connected).
+- Clients without the webapp part (mobile apps, Matty) show no ticks. Reading there
+  counts from opening the conversation, not from each post being on screen, and
+  reaches the author within 20 seconds instead of at once.
 - Bots and deactivated users are not counted as recipients.
 
 ## Build

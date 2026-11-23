@@ -17,6 +17,11 @@ const THRESHOLDS = Array.from({length: 11}, (_, i) => i / 10);
 // user with hundreds of old DMs does not write a receipt for each one.
 const RECENT_CONVERSATION_MS = 14 * 24 * 60 * 60 * 1000;
 
+// Clients that do not run this plugin (Matty, the mobile apps) send no read event:
+// the server only learns of those reads when asked, so unread own posts on screen
+// are re-checked this often while the tab is visible.
+const POLL_UNREAD_MS = 20 * 1000;
+
 function chunks(items) {
     const out = [];
     for (let i = 0; i < items.length; i += MAX_IDS_PER_REQUEST) {
@@ -48,6 +53,8 @@ export default class Tracker {
         this.pendingDelivered = new Set();
         this.ignoredChannels = new Set();
         this.observed = new Set();
+        // The user's own posts rendered in the last scan.
+        this.ownOnPage = new Set();
         this.timers = {};
 
         this.intersection = new IntersectionObserver(this.onIntersection, {threshold: THRESHOLDS});
@@ -58,6 +65,7 @@ export default class Tracker {
         this.mutation.observe(document.body, {childList: true, subtree: true});
         window.addEventListener('focus', this.reportOnScreen);
         document.addEventListener('visibilitychange', this.reportOnScreen);
+        this.pollTimer = setInterval(this.pollUnread, POLL_UNREAD_MS);
         this.deliverRecent();
         this.scheduleScan();
     }
@@ -68,6 +76,7 @@ export default class Tracker {
         window.removeEventListener('focus', this.reportOnScreen);
         document.removeEventListener('visibilitychange', this.reportOnScreen);
         Object.values(this.timers).forEach(clearTimeout);
+        clearInterval(this.pollTimer);
         cancelAnimationFrame(this.scanFrame);
         document.querySelectorAll('.rr-ticks').forEach((el) => el.remove());
     }
@@ -120,6 +129,7 @@ export default class Tracker {
                 this.observed.delete(element);
             }
         }
+        this.ownOnPage.clear();
         for (const element of document.querySelectorAll('.post[id]')) {
             const postId = postIdFromElementId(element.id);
             const post = postId && this.conversationPost(postId);
@@ -127,6 +137,7 @@ export default class Tracker {
                 continue;
             }
             if (post.user_id === this.currentUserId) {
+                this.ownOnPage.add(postId);
                 if (!this.statuses.has(postId)) {
                     // A channel may turn out to have no receipts: show nothing there until the server says.
                     const channel = this.state.entities.channels.channels[post.channel_id];
@@ -152,6 +163,21 @@ export default class Tracker {
                 batch.forEach((id) => this.statuses.set(id, statuses[id] ?? null));
                 this.scheduleScan();
             }).catch(reportError);
+        }
+    };
+
+    pollUnread = () => {
+        if (document.visibilityState !== 'visible') {
+            return;
+        }
+        for (const postId of this.ownOnPage) {
+            const status = this.statuses.get(postId);
+            if (status && status !== 'read') {
+                this.staleStatuses.add(postId);
+            }
+        }
+        if (this.staleStatuses.size) {
+            this.later('status', this.refreshStatuses, 0);
         }
     };
 
